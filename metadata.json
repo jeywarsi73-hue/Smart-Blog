@@ -1,0 +1,6 @@
+{
+  "name": "Katha & Quill — Bilingual Audio Blog",
+  "description": "A bilingual Bangla and English editorial blog platform with one-click neural Text-to-Speech narration and an integrated publishing admin studio.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

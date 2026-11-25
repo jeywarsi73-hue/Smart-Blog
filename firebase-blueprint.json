@@ -1,0 +1,193 @@
+{
+  "entities": {
+    "Article": {
+      "title": "Article",
+      "description": "A bilingual (Bangla or English) editorial blog article with text-to-speech metadata.",
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "description": "Article headline"
+        },
+        "subtitle": {
+          "type": "string",
+          "maxLength": 400,
+          "description": "Optional article deck or subheadline"
+        },
+        "excerpt": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 600,
+          "description": "Short summary shown on article cards"
+        },
+        "content": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 50000,
+          "description": "Full editorial body text"
+        },
+        "language": {
+          "type": "string",
+          "enum": ["bn", "en"],
+          "description": "Primary language of the article"
+        },
+        "category": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 60,
+          "description": "Editorial category"
+        },
+        "coverImage": {
+          "type": "string",
+          "maxLength": 500,
+          "description": "Cover photograph URL or asset path"
+        },
+        "coverCaption": {
+          "type": "string",
+          "maxLength": 300,
+          "description": "Caption beneath the cover image"
+        },
+        "authorName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100,
+          "description": "Display name of the author"
+        },
+        "authorId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "UID of the author"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["draft", "published"],
+          "description": "Publication visibility state"
+        },
+        "featured": {
+          "type": "boolean",
+          "description": "Whether the article is highlighted in the lead hero"
+        },
+        "readTimeMinutes": {
+          "type": "integer",
+          "description": "Estimated reading time in minutes"
+        },
+        "voicePreference": {
+          "type": "string",
+          "enum": ["Kore", "Puck", "Charon", "Fenrir", "Zephyr"],
+          "description": "Preferred Gemini TTS narrator voice"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server last update timestamp"
+        }
+      },
+      "required": [
+        "title",
+        "excerpt",
+        "content",
+        "language",
+        "category",
+        "authorName",
+        "authorId",
+        "status",
+        "featured",
+        "readTimeMinutes",
+        "voicePreference",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "AdminUser": {
+      "title": "AdminUser",
+      "description": "Authorized editorial administrator record.",
+      "type": "object",
+      "properties": {
+        "email": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 150
+        },
+        "displayName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "role": {
+          "type": "string",
+          "enum": ["admin"]
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["email", "displayName", "role", "createdAt"]
+    },
+    "SiteSettings": {
+      "title": "SiteSettings",
+      "description": "Publication-level configuration editable by the admin.",
+      "type": "object",
+      "properties": {
+        "publicationName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "publicationTagline": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 240
+        },
+        "editorBio": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        },
+        "defaultVoiceBn": {
+          "type": "string",
+          "enum": ["Kore", "Puck", "Charon", "Fenrir", "Zephyr"]
+        },
+        "defaultVoiceEn": {
+          "type": "string",
+          "enum": ["Kore", "Puck", "Charon", "Fenrir", "Zephyr"]
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "publicationName",
+        "publicationTagline",
+        "editorBio",
+        "defaultVoiceBn",
+        "defaultVoiceEn",
+        "updatedAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/articles/{articleId}": {
+      "schema": { "$ref": "#/entities/Article" },
+      "description": "Published and draft bilingual blog articles."
+    },
+    "/admins/{userId}": {
+      "schema": { "$ref": "#/entities/AdminUser" },
+      "description": "Authorized admin identities."
+    },
+    "/siteSettings/{settingId}": {
+      "schema": { "$ref": "#/entities/SiteSettings" },
+      "description": "Global publication settings (document ID: main)."
+    }
+  }
+}

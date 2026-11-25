@@ -1,0 +1,167 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global Safety Net: Default deny all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Primitive Helpers ---
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isBootstrappedAdmin() {
+      return isVerifiedUser() && request.auth.token.email == 'jeywarsi73@gmail.com';
+    }
+
+    function isAdmin() {
+      return isBootstrappedAdmin() || (
+        isVerifiedUser() && exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    // --- Validation Blueprints ---
+    function isValidVoice(v) {
+      return v in ['Kore', 'Puck', 'Charon', 'Fenrir', 'Zephyr'];
+    }
+
+    function isValidArticle(data) {
+      return data.keys().hasAll([
+        'title', 'excerpt', 'content', 'language', 'category',
+        'authorName', 'authorId', 'status', 'featured',
+        'readTimeMinutes', 'voicePreference', 'createdAt', 'updatedAt'
+      ]) &&
+      data.keys().hasOnly([
+        'title', 'subtitle', 'excerpt', 'content', 'language', 'category',
+        'coverImage', 'coverCaption', 'authorName', 'authorId', 'status',
+        'featured', 'readTimeMinutes', 'voicePreference', 'createdAt', 'updatedAt'
+      ]) &&
+      data.title is string && data.title.size() >= 1 && data.title.size() <= 200 &&
+      (!('subtitle' in data) || (data.subtitle is string && data.subtitle.size() <= 400)) &&
+      data.excerpt is string && data.excerpt.size() >= 1 && data.excerpt.size() <= 600 &&
+      data.content is string && data.content.size() >= 1 && data.content.size() <= 50000 &&
+      data.language in ['bn', 'en'] &&
+      data.category is string && data.category.size() >= 1 && data.category.size() <= 60 &&
+      (!('coverImage' in data) || (data.coverImage is string && data.coverImage.size() <= 500)) &&
+      (!('coverCaption' in data) || (data.coverCaption is string && data.coverCaption.size() <= 300)) &&
+      data.authorName is string && data.authorName.size() >= 1 && data.authorName.size() <= 100 &&
+      data.authorId is string && isValidId(data.authorId) &&
+      data.status in ['draft', 'published'] &&
+      data.featured is bool &&
+      data.readTimeMinutes is int && data.readTimeMinutes >= 1 && data.readTimeMinutes <= 120 &&
+      isValidVoice(data.voicePreference) &&
+      data.createdAt is timestamp &&
+      data.updatedAt is timestamp;
+    }
+
+    function isValidAdminUser(data) {
+      return data.keys().hasAll(['email', 'displayName', 'role', 'createdAt']) &&
+      data.keys().hasOnly(['email', 'displayName', 'role', 'createdAt']) &&
+      data.email is string && data.email.size() >= 3 && data.email.size() <= 150 &&
+      data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 100 &&
+      data.role == 'admin' &&
+      data.createdAt is timestamp;
+    }
+
+    function isValidSiteSettings(data) {
+      return data.keys().hasAll([
+        'publicationName', 'publicationTagline', 'editorBio',
+        'defaultVoiceBn', 'defaultVoiceEn', 'updatedAt'
+      ]) &&
+      data.keys().hasOnly([
+        'publicationName', 'publicationTagline', 'editorBio',
+        'defaultVoiceBn', 'defaultVoiceEn', 'updatedAt'
+      ]) &&
+      data.publicationName is string && data.publicationName.size() >= 1 && data.publicationName.size() <= 100 &&
+      data.publicationTagline is string && data.publicationTagline.size() >= 1 && data.publicationTagline.size() <= 240 &&
+      data.editorBio is string && data.editorBio.size() >= 1 && data.editorBio.size() <= 500 &&
+      isValidVoice(data.defaultVoiceBn) &&
+      isValidVoice(data.defaultVoiceEn) &&
+      data.updatedAt is timestamp;
+    }
+
+    // --- Collection Match Blocks ---
+    match /articles/{articleId} {
+      allow get: if isValidId(articleId) && (existing().status == 'published' || isAdmin());
+      allow list: if existing().status == 'published' || isBootstrappedAdmin();
+
+      allow create: if isAdmin() &&
+        isValidId(articleId) &&
+        isValidArticle(incoming()) &&
+        incoming().authorId == request.auth.uid &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+
+      allow update: if isAdmin() &&
+        isValidId(articleId) &&
+        isValidArticle(incoming()) &&
+        incoming().authorId == existing().authorId &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'title', 'subtitle', 'excerpt', 'content', 'language', 'category',
+          'coverImage', 'coverCaption', 'authorName', 'status', 'featured',
+          'readTimeMinutes', 'voicePreference', 'updatedAt'
+        ]);
+
+      allow delete: if isAdmin() && isValidId(articleId);
+    }
+
+    match /admins/{userId} {
+      allow get: if isValidId(userId) && (isBootstrappedAdmin() || (isVerifiedUser() && request.auth.uid == userId));
+      allow list: if isBootstrappedAdmin();
+
+      allow create: if isBootstrappedAdmin() &&
+        isValidId(userId) &&
+        isValidAdminUser(incoming()) &&
+        incoming().createdAt == request.time;
+
+      allow update: if isBootstrappedAdmin() &&
+        isValidId(userId) &&
+        isValidAdminUser(incoming()) &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'email', 'role']);
+
+      allow delete: if isBootstrappedAdmin() && isValidId(userId);
+    }
+
+    match /siteSettings/{settingId} {
+      allow get: if isValidId(settingId) && settingId == 'main';
+      allow list: if false;
+
+      allow create: if isAdmin() &&
+        settingId == 'main' &&
+        isValidSiteSettings(incoming()) &&
+        incoming().updatedAt == request.time;
+
+      allow update: if isAdmin() &&
+        settingId == 'main' &&
+        isValidSiteSettings(incoming()) &&
+        incoming().updatedAt == request.time &&
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'publicationName', 'publicationTagline', 'editorBio',
+          'defaultVoiceBn', 'defaultVoiceEn', 'updatedAt'
+        ]);
+
+      allow delete: if false;
+    }
+  }
+}
